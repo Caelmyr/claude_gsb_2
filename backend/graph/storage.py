@@ -144,13 +144,21 @@ class GraphStorage:
         return {'nodes': nodes, 'links': links}
 
     def search_entities(self, keyword: str) -> List[Dict]:
-        """搜索实体"""
+        """搜索实体（大小写不敏感的子串匹配，返回名称中包含关键词的所有实体）"""
+        if not keyword or not keyword.strip():
+            return []
+
+        kw = keyword.strip().lower()
         results = []
         for entity_type, shard in self._cache.items():
             for entity_text, entity_data in shard['entities'].items():
-                if keyword in entity_text:
-                    results.append(entity_data)
-        return results
+                idx = entity_text.lower().find(kw)
+                if idx >= 0:
+                    results.append((idx, len(entity_text), entity_data))
+
+        # 前缀命中优先，其次按关键词出现位置、名称长度排序
+        results.sort(key=lambda item: (item[0], item[1]))
+        return [entity_data for _, _, entity_data in results]
 
     def get_statistics(self) -> Dict:
         """获取图谱统计信息"""

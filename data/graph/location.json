@@ -1,0 +1,12 @@
+{
+  "entities": {
+    "北京市": {
+      "id": "LOCATION_0",
+      "text": "北京市",
+      "type": "LOCATION",
+      "properties": {},
+      "count": 1
+    }
+  },
+  "relations": []
+}

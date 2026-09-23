@@ -98,6 +98,7 @@
         /* 搜索框 */
         .search-box {
             margin-bottom: 20px;
+            position: relative;
         }
 
         .search-box input {
@@ -113,6 +114,62 @@
         .search-box input:focus {
             outline: none;
             border-color: #00d2ff;
+        }
+
+        /* 搜索结果下拉列表 */
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: 4px;
+            background: rgba(26,26,46,0.98);
+            border: 1px solid rgba(0,210,255,0.3);
+            border-radius: 8px;
+            max-height: 280px;
+            overflow-y: auto;
+            z-index: 50;
+            display: none;
+        }
+
+        .search-results.active {
+            display: block;
+        }
+
+        .search-result-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .search-result-item:hover {
+            background: rgba(0,210,255,0.15);
+        }
+
+        .search-result-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex: none;
+        }
+
+        .search-result-name {
+            flex: 1;
+            color: #fff;
+        }
+
+        .search-result-type {
+            font-size: 11px;
+            color: #888;
+        }
+
+        .search-empty {
+            padding: 10px 12px;
+            font-size: 12px;
+            color: #888;
         }
 
         /* 统计信息 */
@@ -224,6 +281,28 @@
         .node circle:hover {
             stroke-width: 4px;
             filter: brightness(1.2);
+        }
+
+        /* 搜索命中的节点高亮 */
+        .node.search-hit circle {
+            stroke: #00d2ff;
+            stroke-width: 4px;
+            filter: drop-shadow(0 0 8px rgba(0,210,255,0.9));
+        }
+
+        .node.search-hit text {
+            fill: #00d2ff;
+            font-weight: bold;
+        }
+
+        /* 搜索时未命中的节点与连线暗化 */
+        .node.search-dim {
+            opacity: 0.2;
+        }
+
+        .link.search-dim,
+        .link-label.search-dim {
+            opacity: 0.1;
         }
 
         .node text {
@@ -374,7 +453,13 @@
                     <h2 class="panel-title">图谱控制</h2>
 
                     <div class="search-box">
-                        <input type="text" id="searchInput" placeholder="搜索实体..." onkeyup="searchEntities()">
+                        <input type="text" id="searchInput" placeholder="搜索实体（支持部分关键词，如：北京）..."
+                               autocomplete="off"
+                               oninput="searchEntities()"
+                               oncompositionend="searchEntities()"
+                               onfocus="searchEntities()"
+                               onblur="hideSearchResults()">
+                        <div class="search-results" id="searchResults"></div>
                     </div>
 
                     <div class="stats-grid">
@@ -426,19 +511,19 @@
                     <h2 class="panel-title">筛选条件</h2>
                     <div class="controls" style="flex-direction: column;">
                         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                            <input type="checkbox" checked onchange="filterByType('PERSON')"> 人物
+                            <input type="checkbox" class="filter-type-checkbox" data-type="PERSON" checked onchange="filterByType('PERSON')"> 人物
                         </label>
                         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                            <input type="checkbox" checked onchange="filterByType('ORG')"> 组织
+                            <input type="checkbox" class="filter-type-checkbox" data-type="ORG" checked onchange="filterByType('ORG')"> 组织
                         </label>
                         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                            <input type="checkbox" checked onchange="filterByType('LOCATION')"> 地点
+                            <input type="checkbox" class="filter-type-checkbox" data-type="LOCATION" checked onchange="filterByType('LOCATION')"> 地点
                         </label>
                         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                            <input type="checkbox" checked onchange="filterByType('TIME')"> 时间
+                            <input type="checkbox" class="filter-type-checkbox" data-type="TIME" checked onchange="filterByType('TIME')"> 时间
                         </label>
                         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                            <input type="checkbox" checked onchange="filterByType('CONCEPT')"> 概念
+                            <input type="checkbox" class="filter-type-checkbox" data-type="CONCEPT" checked onchange="filterByType('CONCEPT')"> 概念
                         </label>
                     </div>
                 </div>
@@ -463,9 +548,11 @@
         let graphData = { nodes: [], links: [] };
         let simulation;
         let svg, g;
+        let zoomBehavior;
         let showLabels = true;
         let showArrows = true;
         let activeTypes = new Set(['PERSON', 'ORG', 'LOCATION', 'TIME', 'CONCEPT']);
+        let currentMatches = new Set();
 
         // 颜色映射
         const colorMap = {
@@ -496,11 +583,12 @@
             // 添加缩放支持
             g = svg.append('g');
 
-            svg.call(d3.zoom()
+            zoomBehavior = d3.zoom()
                 .scaleExtent([0.1, 4])
                 .on('zoom', (event) => {
                     g.attr('transform', event.transform);
-                }));
+                });
+            svg.call(zoomBehavior);
 
             // 添加箭头定义
             svg.append('defs').append('marker')
@@ -622,6 +710,9 @@
 
                 node.attr('transform', d => `translate(${d.x},${d.y})`);
             });
+
+            // 重绘后恢复搜索高亮
+            applySearchHighlight();
         }
 
         // 拖拽函数
@@ -719,7 +810,7 @@
         // 重置缩放
         function resetZoom() {
             svg.transition().duration(500).call(
-                d3.zoom().transform,
+                zoomBehavior.transform,
                 d3.zoomIdentity
             );
         }
@@ -742,21 +833,146 @@
             loadGraphData();
         }
 
-        // 搜索实体
+        // 搜索实体（支持子串匹配）
         function searchEntities() {
-            const keyword = document.getElementById('searchInput').value.toLowerCase();
+            const input = document.getElementById('searchInput');
+            const keyword = input.value.trim().toLowerCase();
 
-            g.selectAll('.node circle')
-                .attr('opacity', d => {
-                    if (!keyword) return 1;
-                    return d.label.toLowerCase().includes(keyword) ? 1 : 0.2;
+            // 对全部实体做大小写不敏感的子串匹配
+            let matches = [];
+            if (keyword) {
+                matches = graphData.nodes.filter(n =>
+                    (n.label || '').toLowerCase().includes(keyword)
+                );
+                // 前缀命中优先，其次按关键词出现位置、名称长度排序
+                matches.sort((a, b) => {
+                    const ai = a.label.toLowerCase().indexOf(keyword);
+                    const bi = b.label.toLowerCase().indexOf(keyword);
+                    if (ai !== bi) return ai - bi;
+                    return a.label.length - b.label.length;
                 });
+            }
 
-            g.selectAll('.node text')
-                .attr('opacity', d => {
-                    if (!keyword) return 1;
-                    return d.label.toLowerCase().includes(keyword) ? 1 : 0.2;
+            currentMatches = new Set(matches.map(n => n.id));
+
+            renderSearchResults(keyword, matches);
+            applySearchHighlight();
+        }
+
+        // 渲染搜索结果下拉列表
+        function renderSearchResults(keyword, matches) {
+            const box = document.getElementById('searchResults');
+
+            if (!keyword) {
+                box.classList.remove('active');
+                box.innerHTML = '';
+                return;
+            }
+
+            if (matches.length === 0) {
+                box.innerHTML = '<div class="search-empty">未找到包含 "'
+                    + escapeHtml(keyword) + '" 的实体</div>';
+                box.classList.add('active');
+                return;
+            }
+
+            box.innerHTML = matches.map(n => `
+                <div class="search-result-item"
+                     onmousedown="event.preventDefault(); focusEntity('${escapeJs(n.label)}')">
+                    <span class="search-result-dot" style="background:${colorMap[n.type] || '#888'}"></span>
+                    <span class="search-result-name">${highlightKeyword(n.label, keyword)}</span>
+                    <span class="search-result-type">${n.type}</span>
+                </div>
+            `).join('');
+            box.classList.add('active');
+        }
+
+        // 关键词片段高亮
+        function highlightKeyword(label, keyword) {
+            const idx = label.toLowerCase().indexOf(keyword);
+            if (idx < 0) return escapeHtml(label);
+            return escapeHtml(label.slice(0, idx))
+                + '<span style="color:#00d2ff;font-weight:bold;">'
+                + escapeHtml(label.slice(idx, idx + keyword.length)) + '</span>'
+                + escapeHtml(label.slice(idx + keyword.length));
+        }
+
+        // 高亮图谱中命中的节点，暗化其余节点和无关连线
+        function applySearchHighlight() {
+            const node = g.selectAll('.node');
+            const link = g.selectAll('.link');
+            const linkLabel = g.selectAll('.link-label');
+
+            node.classed('search-hit', d => currentMatches.has(d.id))
+                .classed('search-dim', d => currentMatches.size > 0 && !currentMatches.has(d.id));
+
+            if (currentMatches.size === 0) {
+                link.classed('search-dim', false);
+                linkLabel.classed('search-dim', false);
+                return;
+            }
+
+            // 与任一命中节点相连的连线保持可见
+            const connected = (l) => {
+                const sourceId = l.source.id || l.source;
+                const targetId = l.target.id || l.target;
+                return currentMatches.has(sourceId) || currentMatches.has(targetId);
+            };
+            link.classed('search-dim', d => !connected(d));
+            linkLabel.classed('search-dim', d => !connected(d));
+        }
+
+        // 隐藏搜索结果下拉框（延迟以允许点击结果项）
+        function hideSearchResults() {
+            setTimeout(() => {
+                document.getElementById('searchResults').classList.remove('active');
+            }, 150);
+        }
+
+        // 点击搜索结果：必要时先恢复对应类型筛选，再定位并选中节点
+        function focusEntity(label) {
+            const node = graphData.nodes.find(n => n.label === label);
+            if (!node) return;
+
+            document.getElementById('searchResults').classList.remove('active');
+
+            const panToNode = () => {
+                const target = graphData.nodes.find(n => n.label === label);
+                if (!target || target.x == null) return;
+
+                const width = parseInt(svg.attr('width'));
+                const height = parseInt(svg.attr('height'));
+                const scale = 1.2;
+                svg.transition().duration(500).call(
+                    zoomBehavior.transform,
+                    d3.zoomIdentity
+                        .translate(width / 2 - target.x * scale, height / 2 - target.y * scale)
+                        .scale(scale)
+                );
+                showNodeDetail(target);
+            };
+
+            if (!activeTypes.has(node.type)) {
+                activeTypes.add(node.type);
+                document.querySelectorAll('.filter-type-checkbox').forEach(cb => {
+                    if (cb.dataset.type === node.type) cb.checked = true;
                 });
+                renderGraph();
+                applySearchHighlight();
+                setTimeout(panToNode, 600);
+            } else {
+                panToNode();
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function escapeJs(text) {
+            return String(text).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         }
 
         // 按类型筛选

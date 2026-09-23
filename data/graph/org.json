@@ -1,0 +1,19 @@
+{
+  "entities": {
+    "北京理工大学": {
+      "id": "ORG_0",
+      "text": "北京理工大学",
+      "type": "ORG",
+      "properties": {},
+      "count": 1
+    },
+    "北京大学": {
+      "id": "ORG_1",
+      "text": "北京大学",
+      "type": "ORG",
+      "properties": {},
+      "count": 1
+    }
+  },
+  "relations": []
+}
