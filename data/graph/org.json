@@ -1,0 +1,25 @@
+{
+  "entities": {
+    "北京理工大学": {
+      "id": "ORG_0",
+      "text": "北京理工大学",
+      "type": "ORG",
+      "properties": {
+        "doc_id": null,
+        "manual": true
+      },
+      "count": 1
+    },
+    "北京协和医院": {
+      "id": "ORG_1",
+      "text": "北京协和医院",
+      "type": "ORG",
+      "properties": {
+        "doc_id": null,
+        "manual": true
+      },
+      "count": 1
+    }
+  },
+  "relations": []
+}

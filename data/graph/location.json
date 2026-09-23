@@ -1,0 +1,35 @@
+{
+  "entities": {
+    "北京": {
+      "id": "LOCATION_0",
+      "text": "北京",
+      "type": "LOCATION",
+      "properties": {
+        "context": "北京理工大学是中国著名的理工科大学，位于北京市",
+        "doc_id": "b2b85ebe"
+      },
+      "count": 1
+    },
+    "中国": {
+      "id": "LOCATION_1",
+      "text": "中国",
+      "type": "LOCATION",
+      "properties": {
+        "context": "北京理工大学是中国著名的理工科大学，位于北京市",
+        "doc_id": "b2b85ebe"
+      },
+      "count": 1
+    },
+    "位于北京市": {
+      "id": "LOCATION_2",
+      "text": "位于北京市",
+      "type": "LOCATION",
+      "properties": {
+        "context": "北京理工大学是中国著名的理工科大学，位于北京市",
+        "doc_id": "b2b85ebe"
+      },
+      "count": 1
+    }
+  },
+  "relations": []
+}

@@ -1,0 +1,15 @@
+{
+  "entities": {
+    "李明教授": {
+      "id": "PERSON_0",
+      "text": "李明教授",
+      "type": "PERSON",
+      "properties": {
+        "context": "李明教授在北京理工大学从事人工智能研究",
+        "doc_id": "b2b85ebe"
+      },
+      "count": 1
+    }
+  },
+  "relations": []
+}
